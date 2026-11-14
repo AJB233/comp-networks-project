@@ -16,8 +16,14 @@ class PeerDiscovery:
         Starts a background thread to listen for incoming UDP broadcast packets 
         from other students opening the app.
         """
-        raise NotImplementedError("UDP listening thread logic not yet implemented")
 
+        if self._is_running:
+            return
+
+        self._is_running = True
+        self._listener_thread = threading.Thread(target=self._listen_for_peers, daemon=True)
+        self._listener_thread.start()
+        
     def broadcast_presence(self) -> None:
         """
         Sends a UDP packet to the local subnet announcing this user's IP and handle.
