@@ -10,6 +10,8 @@ class PeerDiscovery:
         self.user_handle = user_handle
         self.active_peers = {}  # Dictionary mapping IP addresses to user handles
         self._is_running = False
+        self._listener_thread = None
+        self._broadcaster_thread = None
 
     def start_listening(self) -> None:
         """
