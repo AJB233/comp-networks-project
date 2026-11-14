@@ -33,6 +33,29 @@ class PeerDiscovery:
         """
         raise NotImplementedError("UDP broadcast logic not yet implemented")
 
+    def _listen_for_peers(self) -> None:
+        """Listens for incoming UDP broadcasts and updates active_peers"""
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("", self.broadcast_port))
+        sock.settimeout(1.0)
+
+        try:
+            while self._is_running:
+                try:
+                    data, addr = sock.recvfrom(1024)
+                    peer_handle = data.decode('utf-8').strip()
+                    peer_ip = addr[0]
+
+                    # Filter out your own broadcast packets
+                    if peer_handle and peer_handle != self.user_handle:
+                        self.active_peers[peer_handle] = peer_ip
+                except (socket.timeout, UnicodeDecodeError):
+                    continue
+        finally:
+            sock.close()
+
     def get_active_peers(self) -> dict:
         """
         Returns the current list of discovered peers.
@@ -40,7 +63,7 @@ class PeerDiscovery:
         Returns:
             dict: Format {'192.168.4.10': 'Alice', '192.168.4.11': 'Bob'}
         """
-        return self.active_peers
+        return self.active_peers.copy()
     
     def stop(self) -> None:
         """Safely shuts down the UDP sockets and background threads."""
