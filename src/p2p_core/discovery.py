@@ -68,3 +68,8 @@ class PeerDiscovery:
     def stop(self) -> None:
         """Safely shuts down the UDP sockets and background threads."""
         self._is_running = False
+        if self._listener_thread:
+            self._listener_thread.join()
+        if self._broadcaster_thread:
+            self._broadcaster_thread.join()
+            
