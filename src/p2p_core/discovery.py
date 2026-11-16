@@ -10,20 +10,58 @@ class PeerDiscovery:
         self.user_handle = user_handle
         self.active_peers = {}  # Dictionary mapping IP addresses to user handles
         self._is_running = False
+        self._listener_thread = None
+        self._broadcaster_thread = None
 
     def start_listening(self) -> None:
         """
         Starts a background thread to listen for incoming UDP broadcast packets 
         from other students opening the app.
         """
-        raise NotImplementedError("UDP listening thread logic not yet implemented")
+        if self._is_running:
+            return
 
-    def broadcast_presence(self) -> None:
+        self._is_running = True
+        self._listener_thread = threading.Thread(target=self._listen_for_peers, daemon=True)
+        self._listener_thread.start()
+        
+    def broadcast_presence(self, interval: float=3.0) -> None:
         """
         Sends a UDP packet to the local subnet announcing this user's IP and handle.
         Typically called in a loop every few seconds while the app is open.
         """
-        raise NotImplementedError("UDP broadcast logic not yet implemented")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(sock.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        message = self.user_handle.encode("utf-8")
+
+        try:
+            while self._is_running:
+                sock.sendto(message, ("<broadcast>", self.broadcast_port))
+                time.sleep(interval)
+        finally:
+            sock.close()
+
+    def _listen_for_peers(self) -> None:
+        """Listens for incoming UDP broadcasts and updates active_peers"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("", self.broadcast_port))
+        sock.settimeout(1.0)
+
+        try:
+            while self._is_running:
+                try:
+                    data, addr = sock.recvfrom(1024)
+                    peer_handle = data.decode('utf-8').strip()
+                    peer_ip = addr[0]
+
+                    # Filter out your own broadcast packets
+                    if peer_handle and peer_handle != self.user_handle:
+                        self.active_peers[peer_handle] = peer_ip
+                except (socket.timeout, UnicodeDecodeError):
+                    continue
+        finally:
+            sock.close()
 
     def get_active_peers(self) -> dict:
         """
@@ -32,8 +70,13 @@ class PeerDiscovery:
         Returns:
             dict: Format {'192.168.4.10': 'Alice', '192.168.4.11': 'Bob'}
         """
-        return self.active_peers
+        return self.active_peers.copy()
     
     def stop(self) -> None:
         """Safely shuts down the UDP sockets and background threads."""
         self._is_running = False
+        if self._listener_thread:
+            self._listener_thread.join()
+        if self._broadcaster_thread:
+            self._broadcaster_thread.join()
+            
