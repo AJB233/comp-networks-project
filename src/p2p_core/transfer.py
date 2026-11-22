@@ -3,8 +3,7 @@ import threading
 import os
 import json
 import struct
-from p2p_core.utils import generate_file_hash
-
+from .utils import generate_file_hash
 
 class FileTransfer:
     """Handles the reliable TCP socket connections for streaming large file chunks."""
@@ -41,7 +40,7 @@ class FileTransfer:
             server_sock.listen(5)
             server_sock.settimeout(1.0)
             """here I wrote, to have the code check while the server is running, it should be having the client socket accept the server incoming socket connection
-            and to continuouslym be doing handle_client for that client socket, while the server is running, however if the socket times outs, it can continue
+            and to continuously be doing handle_client for that client socket, while the server is running, however if the socket times out, it can continue
             but if theres an error, it will outright break and stop.
             """
             while self._is_running:
@@ -71,7 +70,7 @@ class FileTransfer:
                 metadata = json.loads(meta_bytes.decode("utf-8"))
 
                 safe_name = os.path.basename(metadata["filename"])
-                filesize = int (metadata["filesize"])
+                filesize_bytes = int (metadata["filesize_bytes"])
                 expected_hash = metadata["checksum"]
                 dest_path = os.path.join(self.save_directory, safe_name)
                 """ Here we begin counting the actual bytes received, and loop through to make sure we received all the bytes
@@ -80,8 +79,8 @@ class FileTransfer:
                 """
                 bytes_received = 0
                 with open(dest_path, "wb") as f:
-                    while bytes_received < filesize:
-                        to_read = min(4096, filesize - bytes_received)
+                    while bytes_received < filesize_bytes:
+                        to_read = min(4096, filesize_bytes - bytes_received)
                         chunk = client_sock.recv(to_read)
                         if not chunk:
                             raise ConnectionError("Peer disconnected mid-transfer")
@@ -90,32 +89,37 @@ class FileTransfer:
                 """
                 Here when we write into the file, we check if the actual hash number is the same as what we expect,
                 if it is and we're expecting to receive something, I wrote sendall "1" to indicate we received, otherwise if its incorrect
-                , we remove that path, and sendall 0 to indicate not received.
+                , we remove that path, and sendall 0 to indicate not received when the error is brought up below, here we have it raise the
+                value error
                 """
                 actual_hash = generate_file_hash(dest_path)
                 if actual_hash == expected_hash:
                     client_sock.sendall(b"1")
                 else:
-                    os.remove(dest_path)
-                    client_sock.sendall(b"0")
+                    raise ValueError("Error: SHA-256 checksum mismatch")
                 """
                 Here we wrote this part, for the purpose of checking if there is an issue, crashing or disconnection.Basically if the file is half written or bugged, it raises the exception so that way we dont leave broken files when downloading.
-                to then remove it from the path. in the try block we sendall "0" indicating we're not receiving anymore to then show its finished.
+                to then remove it from the path. in the try block we sendall "0" indicating we're not receiving anymore to then show its finished or that theres an error and wont send anymore.
+                here if the error comes up, like how it was raised earlier, we send "0".
                 """
-            except Exception:
+            except Exception as e:
+                print(f"[Transfer Error] {e}")
                 if dest_path and os.path.exists(dest_path):
                     os.remove(dest_path)
                 try:
                     client_sock.sendall(b"0")
                 except OSError:
                     pass
-    """
-    Here the definition for receiving the file, we built it like this.
-    I decided to first set up the buffer array, and so long as the buffer was less than the incoming bytes, then the chunk,
-    would read through and receive the bytes until all expected bytes are received, if there's nothing in the chunk, we raised the error
-    of the connection closing before being fulfilled, the buffer.extend then adds the chunks onto the list of the buffer array, then
-    we return the bytes from buffer, which is how we receive the file.
-    """
+
+
+    
+    
+    # Here the definition for receiving the file, we built it like this.
+    # I decided to first set up the buffer array, and so long as the buffer was less than the incoming bytes, then the chunk,
+    # would read through and receive the bytes until all expected bytes are received, if there's nothing in the chunk, we raised the error
+    # of the connection closing before being fulfilled, the buffer.extend then adds the chunks onto the list of the buffer array, then
+    # we return the bytes from buffer, which is how we receive the file.
+
     def recv_file(self, sock: socket.socket, num_bytes: int) -> bytes:
         buffer = bytearray()
         while len(buffer) < num_bytes:
@@ -152,15 +156,16 @@ class FileTransfer:
             metadata =  {
                         "sender": self.sender_name,
                         "filename": os.path.basename(filepath),
-                        "filesize": os.path.getsize(filepath),
+                        "filesize_bytes": os.path.getsize(filepath),
                         "checksum": generate_file_hash(filepath)
                         }
             
             data= json.dumps(metadata).encode("utf-8")
             HEADER = struct.pack("!I", len(data))
             with socket.create_connection((target_ip, self.tcp_port), timeout = 5.0) as sock:
+                sock.settimeout(30.0)
                 """Here we send the file we just constructed and its data,
-                using sendall for the header and the metadata, with opening the file path and while it is reading the file where meant to send
+                using sendall for the header and the metadata, with opening the file path and while it is reading the file we're meant to send
                 it is actively using sendall on chunk to send that file over until the end.
                 """
                 sock.sendall(HEADER + data)
@@ -171,7 +176,8 @@ class FileTransfer:
                 that the file was sent successfully.
                 """
                 return self.recv_file(sock, 1) == b"1"
-        except Exception:
+        except Exception as e:
+            print(f"[Transfer Error] {e}")
             return False
 
     def stop(self) -> None:
