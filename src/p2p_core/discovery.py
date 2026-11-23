@@ -57,7 +57,7 @@ class PeerDiscovery:
 
                     # Filter out your own broadcast packets
                     if peer_handle and peer_handle != self.user_handle:
-                        self.active_peers[peer_handle] = peer_ip
+                        self.active_peers[peer_ip] = peer_handle
                 except (socket.timeout, UnicodeDecodeError):
                     continue
         finally:
