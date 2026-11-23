@@ -1,6 +1,7 @@
 import socket
 import threading
 import json
+import time
 
 class PeerDiscovery:
     """Handles UDP broadcasting and listening to discover classmates on the local network."""
@@ -11,7 +12,6 @@ class PeerDiscovery:
         self.active_peers = {}  # Dictionary mapping IP addresses to user handles
         self._is_running = False
         self._listener_thread = None
-        self._broadcaster_thread = None
 
     def start_listening(self) -> None:
         """
@@ -25,7 +25,7 @@ class PeerDiscovery:
         self._listener_thread = threading.Thread(target=self._listen_for_peers, daemon=True)
         self._listener_thread.start()
         
-    def broadcast_presence(self, interval: float=3.0) -> None:
+    def broadcast_presence(self) -> None:
         """
         Sends a UDP packet to the local subnet announcing this user's IP and handle.
         Typically called in a loop every few seconds while the app is open.
@@ -36,7 +36,6 @@ class PeerDiscovery:
 
         try:
             sock.sendto(message, ("<broadcast>", self.broadcast_port))
-            time.sleep(interval)
         finally:
             sock.close()
 
@@ -76,6 +75,4 @@ class PeerDiscovery:
         self._is_running = False
         if self._listener_thread:
             self._listener_thread.join()
-        if self._broadcaster_thread:
-            self._broadcaster_thread.join()
             
