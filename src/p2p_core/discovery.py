@@ -1,7 +1,5 @@
 import socket
 import threading
-import json
-import time
 
 class PeerDiscovery:
     """Handles UDP broadcasting and listening to discover classmates on the local network."""

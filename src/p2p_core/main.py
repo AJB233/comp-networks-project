@@ -1,11 +1,9 @@
 import time
+import threading
 import os
 from .utils import get_local_ip
 from .transfer import FileTransfer
-
-# Import stub
-# from discovery import PeerDiscovery
-
+from .discovery import PeerDiscovery
 
 def print_menu():
     print("\n--- P2P AirDrop ---")
@@ -15,12 +13,24 @@ def print_menu():
 
 def main():
     my_ip = get_local_ip()
-    my_handle = input("Enter your display name: ")
+    my_handle = input("Enter your display name: ").strip()
     print(f"Starting node on {my_ip} as {my_handle}...")
 
-    # Initialize Modules (Stubbed for now)
-    # discovery = PeerDiscovery(handle=my_handle)
-    # discovery.start()
+    # Initialize Modules
+    BROADCAST_PORT = 50000
+
+    discovery = PeerDiscovery(broadcast_port=BROADCAST_PORT, user_handle=my_handle)
+    discovery.start_listening()
+
+    stop_broadcast = threading.Event()
+
+    def periodic_broadcast():
+        while not stop_broadcast.is_set():
+            discovery.broadcast_presence()
+            stop_broadcast.wait(3.0)
+
+    threading.Thread(target=periodic_broadcast, daemon=True).start()
+
     TCP_PORT = 50001
 
     transfer = FileTransfer(
@@ -37,10 +47,12 @@ def main():
 
             if choice == '1':
                 print("\n[Scanning local network...]")
-                # peers = discovery.get_peers()
-                # for ip, name in peers.items():
-                #     print(f"- {name} ({ip})")
-                print("- Dummy Student (192.168.1.99)") # Placeholder
+                peers = discovery.get_active_peers()
+                if not peers:
+                    print("No active peers found...")
+                else:
+                    for ip, name in peers.items():
+                        print(f"- {name} ({ip})")
 
             elif choice == '2':
                 target_ip = input("Enter target IP address: ")
@@ -63,7 +75,8 @@ def main():
         print("\nForce quitting...")
     finally:
         # Clean up threads
-        # discovery.stop()
+        discovery.stop()
+        stop_broadcast.set()
         transfer.stop()
         pass
 
