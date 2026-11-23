@@ -35,9 +35,8 @@ class PeerDiscovery:
         message = self.user_handle.encode("utf-8")
 
         try:
-            while self._is_running:
-                sock.sendto(message, ("<broadcast>", self.broadcast_port))
-                time.sleep(interval)
+            sock.sendto(message, ("<broadcast>", self.broadcast_port))
+            time.sleep(interval)
         finally:
             sock.close()
 
