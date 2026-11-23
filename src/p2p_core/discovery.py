@@ -31,7 +31,7 @@ class PeerDiscovery:
         Typically called in a loop every few seconds while the app is open.
         """
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(sock.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         message = self.user_handle.encode("utf-8")
 
         try:
