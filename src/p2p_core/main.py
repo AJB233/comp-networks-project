@@ -1,10 +1,11 @@
 import time
 import os
-from utils import get_local_ip
+from .utils import get_local_ip
+from .transfer import FileTransfer
 
-# Import stubs (these will be built by your team)
+# Import stub
 # from discovery import PeerDiscovery
-# from transfer import FileTransfer
+
 
 def print_menu():
     print("\n--- P2P AirDrop ---")
@@ -20,8 +21,14 @@ def main():
     # Initialize Modules (Stubbed for now)
     # discovery = PeerDiscovery(handle=my_handle)
     # discovery.start()
-    # transfer = FileTransfer(save_dir="./received_files")
-    # transfer.start_listening()
+    TCP_PORT = 50001
+
+    transfer = FileTransfer(
+        tcp_port=TCP_PORT,
+        save_directory="./received_files",
+        sender_name=my_handle,
+    )
+    transfer.start_server()
 
     try:
         while True:
@@ -41,8 +48,8 @@ def main():
                 
                 if os.path.exists(filepath):
                     print(f"Initiating transfer to {target_ip}...")
-                    # success = transfer.send_file(target_ip, filepath)
-                    # print("Transfer Complete!" if success else "Transfer Failed.")
+                    success = transfer.send_file(target_ip, filepath)
+                    print("Transfer Complete!" if success else "Transfer Failed.")
                 else:
                     print("Error: File not found.")
 
@@ -57,7 +64,7 @@ def main():
     finally:
         # Clean up threads
         # discovery.stop()
-        # transfer.stop()
+        transfer.stop()
         pass
 
 if __name__ == "__main__":

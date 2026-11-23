@@ -51,4 +51,9 @@ pip install -r requirements.txt
 ## Running the Application
 Ensure your virtual environment is active. Start the application from the root directory
 ```bash
-python3 src/p2p_core/main.py
+PYTHONPATH=src python3 -m p2p_core.main
+```
+
+```powershell
+$env:PYTHONPATH="src"; python -m p2p_core.main
+```
